@@ -5,7 +5,7 @@
 \title{SQBreg}
 \usage{
 SQBreg(data.train, data.test, y, res, reps, cores, FunKDE, control,
-  SQBalgorithm.1, SQBalgorithm.2)
+  SQBalgorithm.1, SQBalgorithm.2, k, ncomp, nnet.size)
 }
 \arguments{
 \item{data.train}{Training dataset}
@@ -20,13 +20,19 @@ SQBreg(data.train, data.test, y, res, reps, cores, FunKDE, control,
 
 \item{cores}{Use multi-cores, default one core, use cores='maxcores' for full use.}
 
-\item{FunKDE}{Kernel density estimate function, can use different kernel to fit, default logistic kernel.}
+\item{FunKDE}{Kernel density estimate function. Use different kernel to fit, default logistic kernel.}
 
 \item{control}{Use in rpart package, rpart.control to tune the control}
 
-\item{SQBalgorithm.1}{Use for the first bagging training. Option: lm, CART(default), knnreg.}
+\item{SQBalgorithm.1}{Use for the initial training. Option: lm, CART(default), knnreg, nnet, PCR.}
 
-\item{SQBalgorithm.2}{Use for the last bagging training. Option: lm, CART(default), knnreg.}
+\item{SQBalgorithm.2}{Use for the last training. Option: lm, CART(default), knnreg, nnet, PCR.}
+
+\item{k}{The number of nearest neighbour used for knnreg}
+
+\item{ncomp}{The number of component used for PCR}
+
+\item{nnet.size}{The number of hidden layer and neuron for nnet}
 }
 \value{
 Given testing set input, make a regression prediction
@@ -37,9 +43,9 @@ Do prediction using sequential bagging method with tree based learning algorithm
 \examples{
 data(hills, package="MASS")
 rt.df <- hills[sample(nrow(hills)),]
-data.train <- rt.df[1 : (length(rt.df[, 1]) / 2), ]
-data.test <- rt.df[-(1 : (length(rt.df[, 1]) / 2)),]
-fit <- SQBreg(data.train = data.train, data.test = data.test, reps = 50, y = "time")
+data.train <- rt.df[1 : (length(rt.df[, 1]) - 1), ]
+data.test <- rt.df[-(1 : (length(rt.df[, 1]) - 1)),]
+fit <- SQBreg(data.train, data.test, reps = 30, y = "time")
 fit
 
 }
@@ -48,4 +54,6 @@ Breiman L., Friedman J. H., Olshen R. A., and Stone, C. J. (1984)
 \emph{Classification and Regression Trees.}
 
 Soleymani, M. and Lee S.M.S(2014). Sequential combination of weighted and nonparametric bagging for classification. \emph{Biometrika}, 101, 2, pp. 491--498.
+
+Efron, B. (1979). Bootstrap methods: Another lo ok at the jackknife. Ann. Statist., 7(1):1-26.
 }

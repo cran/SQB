@@ -4,7 +4,7 @@
 \name{SQB}
 \alias{SQB}
 \alias{SQB-package}
-\title{Sequential bagging method on Regression}
+\title{Sequential bagging method on regression}
 \description{
 Combine bagging, bootstrap decision tree and kernel density estimate
 }
