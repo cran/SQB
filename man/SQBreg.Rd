@@ -24,9 +24,9 @@ SQBreg(data.train, data.test, y, res, reps, cores, FunKDE, control,
 
 \item{control}{Use in rpart package, rpart.control to tune the control}
 
-\item{SQBalgorithm.1}{Use for the initial training. Option: lm, CART(default), knnreg, nnet, PCR.}
+\item{SQBalgorithm.1}{Use for the initial training. Option: CART, lm(default), knnreg, nnet, PCR.}
 
-\item{SQBalgorithm.2}{Use for the last training. Option: lm, CART(default), knnreg, nnet, PCR.}
+\item{SQBalgorithm.2}{Use for the last training. Option: CART, lm(default), knnreg, nnet, PCR.}
 
 \item{k}{The number of nearest neighbour used for knnreg}
 

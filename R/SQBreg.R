@@ -11,8 +11,8 @@
 #' @param cores Use multi-cores, default one core, use cores='maxcores' for full use.
 #' @param FunKDE Kernel density estimate function. Use different kernel to fit, default logistic kernel.
 #' @param control Use in rpart package, rpart.control to tune the control
-#' @param SQBalgorithm.1 Use for the initial training. Option: lm, CART(default), knnreg, nnet, PCR.
-#' @param SQBalgorithm.2 Use for the last training. Option: lm, CART(default), knnreg, nnet, PCR.
+#' @param SQBalgorithm.1 Use for the initial training. Option: CART, lm(default), knnreg, nnet, PCR.
+#' @param SQBalgorithm.2 Use for the last training. Option: CART, lm(default), knnreg, nnet, PCR.
 #' @param k The number of nearest neighbour used for knnreg
 #' @param ncomp The number of component used for PCR
 #' @param nnet.size The number of hidden layer and neuron for nnet
@@ -79,20 +79,24 @@ SQBreg <- function(data.train, data.test, y, res, reps,
   }
 
   if (missing(k)){
-    k = 2 # KNN
+    k = 1 # KNN
   }
 
-  if (missing(nnet.size) || nnet.size < 2){
+  if (missing(nnet.size)){
+    nnet.size = 2
+  }
+
+  if (nnet.size < 2){
     warning('Invalid hidden layer or neuron, system modify to 2')
     nnet.size = 2
   }
 
   if (missing(ncomp) || ncomp == 0 || n.predictors == 1){
-      ncomp = 1
-    }
-    if (ncomp == n.predictors && n.predictors != 1){
-      ncomp = n.predictors - 1
-    }
+    ncomp = 1
+  }
+  if (ncomp == n.predictors && n.predictors != 1){
+    ncomp = n.predictors - 1
+  }
 
 
   if (missing(res)){
@@ -109,11 +113,11 @@ SQBreg <- function(data.train, data.test, y, res, reps,
   }
 
   if (missing(SQBalgorithm.1)){
-    SQBalgorithm.1 = "CART"
+    SQBalgorithm.1 = "lm"
   }
 
   if (missing(SQBalgorithm.2)){
-    SQBalgorithm.2 = "CART"
+    SQBalgorithm.2 = "lm"
   }
 
   RegTree <- function(formula, data.train, res, index, SQBalgorithm, control,...) {
@@ -121,9 +125,9 @@ SQBreg <- function(data.train, data.test, y, res, reps,
     store <- double(maxit)
     for (i in index) {
       j <- index[i]
-      delete1.L <- data.train[-j, ]
-      subindex1 <- sample((1 : (maxit - 1))[-j], res, replace=F)
-      bootstrap.sample1 <- delete1.L[subindex1, ]
+
+      subindex1 <- sample((1 : maxit)[-j], res, replace=F)
+      bootstrap.sample1 <- data.train[subindex1, ]
 
       if (SQBalgorithm == "CART"){
         fit1.step2.lm1 <- rpart(formula=formula, data=bootstrap.sample1, method="anova", control=control)
@@ -186,27 +190,8 @@ SQBreg <- function(data.train, data.test, y, res, reps,
   new.reg.lm100 <- res.replicate
 
   setTxtProgressBar(pb, 3)
-  if (missing(FunKDE) || FunKDE == "logistic")
+  if (missing(FunKDE) || FunKDE == "gaussian")
   {
-    FunKDE = function(new.reg.lm100, reps, SIGMA) {
-      if (missing(SIGMA)){
-        SIGMA <- sqrt(pi ^ 2 / 3) #
-      }
-      c <- 1 / sqrt(1 + SIGMA^2)
-
-      meanMatrix <- matrix(rep(rowMeans(new.reg.lm100), reps), ncol = reps)
-      sdMatrix <- matrix(rep(apply(new.reg.lm100, 1, sd), reps), ncol = reps)
-      Zi <- matrix(rlogis(length(sdMatrix), 0, SIGMA), ncol = reps)  #
-
-      norm.generator150 <- meanMatrix + c * (new.reg.lm100 -  meanMatrix + sdMatrix * Zi)
-
-      return(norm.generator150)
-    }
-  }
-
-  else if (FunKDE == "gaussian")
-  {
-    #
     FunKDE = function(new.reg.lm100, reps, SIGMA) {
       if (missing(SIGMA)){
         SIGMA <- 1 #
@@ -224,6 +209,25 @@ SQBreg <- function(data.train, data.test, y, res, reps,
                                                sdMatrix * Zi)
       return(norm.generator150)
     }
+  }
+
+  else if (FunKDE == "logistic")
+  {
+    FunKDE = function(new.reg.lm100, reps, SIGMA) {
+      if (missing(SIGMA)){
+        SIGMA <- sqrt(pi ^ 2 / 3) #
+      }
+      c <- 1 / sqrt(1 + SIGMA^2)
+
+      meanMatrix <- matrix(rep(rowMeans(new.reg.lm100), reps), ncol = reps)
+      sdMatrix <- matrix(rep(apply(new.reg.lm100, 1, sd), reps), ncol = reps)
+      Zi <- matrix(rlogis(length(sdMatrix), 0, SIGMA), ncol = reps)  #
+
+      norm.generator150 <- meanMatrix + c * (new.reg.lm100 -  meanMatrix + sdMatrix * Zi)
+
+      return(norm.generator150)
+    }
+
   }
   #
   else if (FunKDE == "rectangle")
@@ -248,8 +252,58 @@ SQBreg <- function(data.train, data.test, y, res, reps,
     }
   }
 
+  else if (FunKDE == "normal"){
+    KDE100.generator150 = matrix(0, nrow = nrow(new.reg.lm100), ncol = ncol(new.reg.lm100))
+    FunKDE = function(new.reg.lm100, reps, SIGMA){
+      SIGMA = NULL
+      reps = reps
+      sigma.hat <- apply(new.reg.lm100, 1, sd)
+      mean.hat <- rowMeans(new.reg.lm100)
+
+      for (iteration in 1 : nrow(new.reg.lm100)){
+        KDE100.generator150[iteration, ] <-
+          rnorm(reps, mean.hat[iteration], sigma.hat[iteration])
+
+      }
+      return(KDE100.generator150)
+    }
+  }
+
+  else if (FunKDE == "uniform"){
+    KDE100.generator150 = matrix(0, nrow = nrow(new.reg.lm100), ncol = ncol(new.reg.lm100))
+    FunKDE = function(new.reg.lm100, reps, SIGMA) {
+      SIGMA = NULL
+      reps = reps
+      min.hat <- apply(new.reg.lm100, 1, min)
+      max.hat <- apply(new.reg.lm100, 1, max)
+
+      for (iteration in 1 : nrow(new.reg.lm100)){
+        KDE100.generator150[iteration,] <-
+          runif(reps, min.hat[iteration], max.hat[iteration])
+      }
+      return(KDE100.generator150)
+    }
+  }
+
+  else if (FunKDE == "logis"){
+    KDE100.generator150 = matrix(0, nrow = nrow(new.reg.lm100), ncol = ncol(new.reg.lm100))
+    FunKDE = function(new.reg.lm100, reps, SIGMA) {
+      SIGMA = NULL
+      reps = reps
+      mean.hat <- apply(new.reg.lm100, 1, mean)
+      scale.hat <- apply(new.reg.lm100, 1, sd)
+
+      for (iteration in 1 : nrow(new.reg.lm100)){
+        KDE100.generator150[iteration,] <-
+          rlogis(reps, mean.hat[iteration], scale.hat[iteration])
+      }
+      return(KDE100.generator150)
+    }
+  }
+
   else {
-    stop("response generator invalid")
+    stop("response generator invalid, should select: 'normal', 'uniform', 'logis',
+         'gaussian', 'rectangle', 'logistic'. ")
   }
   #
   KDE100.generator150 <- FunKDE(new.reg.lm100, reps)
@@ -316,5 +370,3 @@ SQBreg <- function(data.train, data.test, y, res, reps,
   setTxtProgressBar(pb, 4)
   return(final.prediction)
 }
-
-
